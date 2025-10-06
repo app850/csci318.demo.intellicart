@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>AI Assistant</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#0b0b0c;color:#eee}
+        .container{max-width:800px;margin:0 auto;padding:24px}
+        h1{font-size:20px;margin:0 0 12px}
+        .panel{background:#151517;border:1px solid #2a2a2e;border-radius:12px;padding:16px}
+        .messages{height:420px;overflow:auto;padding:8px;background:#0f0f12;border:1px solid #242428;border-radius:8px}
+        .msg{margin:8px 0;padding:10px 12px;border-radius:10px;max-width:78%}
+        .user{background:#1f3b6b;margin-left:auto}
+        .bot{background:#1a1a1e}
+        .meta{opacity:.7;font-size:12px;margin-top:4px}
+        .row{display:flex;gap:8px;margin-top:12px}
+        input[type=text]{flex:1;padding:12px 12px;border-radius:10px;border:1px solid #2a2a2e;background:#111113;color:#eee}
+        button{padding:12px 14px;border-radius:10px;border:1px solid #2a2a2e;background:#2b2b30;color:#eee;cursor:pointer}
+        button:disabled{opacity:.6;cursor:not-allowed}
+        .small{font-size:12px;opacity:.8;margin-top:8px}
+        .badge{display:inline-block;background:#2b2b30;border:1px solid #3a3a40;border-radius:6px;padding:2px 6px;margin-left:6px;font-size:12px}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>AI Assistant<span id="status" class="badge">idle</span></h1>
+    <div class="panel">
+        <div id="messages" class="messages"></div>
+        <div class="row">
+            <input id="input" type="text" placeholder="Type your message and press Enter">
+            <button id="send">Send</button>
+            <button id="reindex">Reindex Books</button>
+        </div>
+        <div class="small">Chat endpoint: /api/assistant/chat • Reindex: /api/assistant/books/reindexAsync</div>
+    </div>
+</div>
+<script>
+    const mEl=document.getElementById('messages');
+    const iEl=document.getElementById('input');
+    const sBtn=document.getElementById('send');
+    const rBtn=document.getElementById('reindex');
+    const st=document.getElementById('status');
+    function addMsg(text,who,meta){const d=document.createElement('div');d.className='msg '+(who==='user'?'user':'bot');d.innerText=text;mEl.appendChild(d);if(meta){const m=document.createElement('div');m.className='meta';m.innerText=meta;mEl.appendChild(m)}mEl.scrollTop=mEl.scrollHeight}
+    async function send(){
+        const text=iEl.value.trim();if(!text)return;
+        iEl.value='';sBtn.disabled=true;addMsg(text,'user');
+        st.textContent='thinking...';
+        try{
+            const res=await fetch('/api/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+            const data=await res.json();
+            addMsg(data.reply||'(no reply)','bot',typeof data.similarity==='number'?'similarity: '+data.similarity.toFixed(3):'');
+        }catch(e){
+            addMsg('Error calling /api/assistant/chat','bot');
+        }finally{
+            sBtn.disabled=false;st.textContent='idle';
+        }
+    }
+    async function reindex(){
+        rBtn.disabled=true;st.textContent='indexing...';
+        try{await fetch('/api/assistant/books/reindexAsync',{method:'POST'})}catch(e){}finally{rBtn.disabled=false;st.textContent='idle'}
+    }
+    sBtn.addEventListener('click',send);
+    iEl.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+    rBtn.addEventListener('click',reindex);
+</script>
+</body>
+</html>
